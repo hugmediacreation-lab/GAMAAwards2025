@@ -20,6 +20,21 @@
             background: #f3f4f6;
             overflow: hidden;
         }
+        .preview-container .user-img-wrapper {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+        .preview-container .user-img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform-origin: center center;
+        }
         .preview-container .frame-img {
             position: absolute;
             top: 0;
@@ -78,13 +93,27 @@
         <div class="mb-6">
             <h2 class="text-xl font-semibold text-purple-800 mb-2">4 ดูตัวอย่าง</h2>
             <div class="preview-container rounded mx-auto" id="preview">
-                <img id="userImage" class="user-img hidden" alt="Cropped User Image" />
+                <div class="user-img-wrapper">
+                    <img id="userImage" class="user-img hidden" alt="Cropped User Image" />
+                </div>
                 <img id="frameImage" class="frame-img hidden" alt="Selected Frame" />
             </div>
         </div>
 
+        <div class="mb-6">
+            <h2 class="text-xl font-semibold text-purple-800 mb-2">5 ปรับแต่งรูปภาพ</h2>
+            <label for="scaleSlider" class="block mb-1">ขยาย/ย่อ</label>
+            <input type="range" id="scaleSlider" min="50" max="200" value="100" class="w-full mb-2">
+            <label for="xSlider" class="block mb-1">ตำแหน่งแนวนอน</label>
+            <input type="range" id="xSlider" min="-100" max="100" value="0" class="w-full mb-2">
+            <label for="ySlider" class="block mb-1">ตำแหน่งแนวตั้ง</label>
+            <input type="range" id="ySlider" min="-100" max="100" value="0" class="w-full mb-2">
+            <label for="rotateSlider" class="block mb-1">หมุน</label>
+            <input type="range" id="rotateSlider" min="-180" max="180" value="0" class="w-full mb-2">
+        </div>
+
         <div class="mb-4">
-            <h2 class="text-xl font-semibold text-purple-800 mb-2">5 ดาวน์โหลดรูปภาพของคุณ</h2>
+            <h2 class="text-xl font-semibold text-purple-800 mb-2">6 ดาวน์โหลดรูปภาพของคุณ</h2>
             <button id="downloadBtn" disabled class="w-full bg-purple-600 text-white py-3 rounded text-lg font-semibold hover:bg-purple-700 transition duration-300">Android/คอมพิวเตอร์</button>
             <button id="shareBtn" disabled class="w-full mt-3 bg-blue-500 text-white py-3 rounded text-lg font-semibold hover:bg-blue-600 transition duration-300">iOS(บันทึกภาพ)</button>
         </div>
@@ -107,16 +136,25 @@
         const imageToCrop = document.getElementById('imageToCrop');
         const cropContainer = document.getElementById('cropContainer');
         const cropBtn = document.getElementById('cropBtn');
-        const editCropBtn = document.getElementById('editCropBtn'); // New button
+        const editCropBtn = document.getElementById('editCropBtn');
         const userImage = document.getElementById('userImage');
         const frameImage = document.getElementById('frameImage');
         const downloadBtn = document.getElementById('downloadBtn');
         const shareBtn = document.getElementById('shareBtn');
 
+        // Sliders for image adjustments
+        const scaleSlider = document.getElementById('scaleSlider');
+        const xSlider = document.getElementById('xSlider');
+        const ySlider = document.getElementById('ySlider');
+        const rotateSlider = document.getElementById('rotateSlider');
+
         let cropper = null;
         let currentFrame = null;
         let originalUserImageSrc = ''; // Stores the original uploaded image data URL
         let croppedImageDataUrl = null; // Stores the data URL of the cropped image
+
+        // Transformation values for the *cropped* image
+        let scale = 1, x = 0, y = 0, rotation = 0;
 
         // Populate frame list
         for (let key in frameUrls) {
@@ -133,6 +171,23 @@
             };
             frameList.appendChild(btn);
         }
+
+        // Function to apply CSS transformations for preview
+        function applyTransform() {
+            const currentScale = Math.max(0.1, scale); // Prevent scale from being zero or negative for CSS preview
+            userImage.style.transform = `translate(${x}%, ${y}%) scale(${currentScale}) rotate(${rotation}deg)`;
+        }
+
+        // Apply transformations from sliders to the preview
+        [scaleSlider, xSlider, ySlider, rotateSlider].forEach(slider => {
+            slider.addEventListener('input', () => {
+                scale = parseFloat(scaleSlider.value) / 100;
+                x = parseFloat(xSlider.value);
+                y = parseFloat(ySlider.value);
+                rotation = parseFloat(rotateSlider.value);
+                applyTransform();
+            });
+        });
 
         // Function to initialize or show the cropper
         function showCropper() {
@@ -169,6 +224,13 @@
                 croppedImageDataUrl = null; // Reset cropped image
                 checkReady(); // Update button states
                 showCropper(); // Show the cropper interface
+                // Reset transformation sliders for a new image
+                scale = 1; x = 0; y = 0; rotation = 0;
+                scaleSlider.value = 100;
+                xSlider.value = 0;
+                ySlider.value = 0;
+                rotateSlider.value = 0;
+                applyTransform();
             };
             reader.readAsDataURL(file);
         });
@@ -186,9 +248,7 @@
                 userImage.src = croppedImageDataUrl;
                 userImage.classList.remove('hidden');
 
-                // Hide cropper and show edit button
                 cropper.disable(); // Disable cropper interactions
-                // cropper.destroy(); // Keep cropper instance to re-enable it later
                 cropContainer.style.display = 'none';
                 imageToCrop.classList.add('hidden');
                 cropBtn.classList.add('hidden');
@@ -208,29 +268,27 @@
         });
 
         function checkReady() {
-            const ready = croppedImageDataUrl && currentFrame;
+            const ready = croppedImageDataUrl && currentFrame; // Now check for cropped image
             downloadBtn.disabled = !ready;
             shareBtn.disabled = !ready;
         }
 
+        // *** ฟังก์ชัน renderCanvas ใช้ Canvas API โดยตรง พร้อมการแปลงรูปภาพ ***
         async function renderCanvas() {
             const canvas = document.createElement('canvas');
             canvas.width = 1920;
             canvas.height = 1920;
             const ctx = canvas.getContext('2d');
 
-            // Set background to transparent (for PNG output flexibility)
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // Set background to transparent
 
-            // Load cropped user image
             const hiResUser = new Image();
-            hiResUser.src = croppedImageDataUrl; // Use the cropped image
+            hiResUser.src = croppedImageDataUrl; // Use the cropped image data URL
             await new Promise((resolve, reject) => {
                 hiResUser.onload = resolve;
                 hiResUser.onerror = () => reject(new Error('Failed to load cropped user image for high-res render.'));
             });
 
-            // Load frame image
             const hiResFrame = new Image();
             hiResFrame.src = frameImage.src;
             hiResFrame.crossOrigin = 'anonymous';
@@ -239,22 +297,68 @@
                 hiResFrame.onerror = () => reject(new Error('Failed to load frame image for high-res render.'));
             });
 
-            // Draw cropped user image (already 1:1 and full size)
-            ctx.drawImage(hiResUser, 0, 0, canvas.width, canvas.height);
+            // --- Draw user image with transformations (mimicking object-fit: cover and CSS transforms) ---
+            ctx.save(); // Save the current state of Canvas context
 
-            // Draw frame image on top
+            // Move the origin to the center of the canvas for rotation and scaling
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+
+            // Rotate the image (Rotation applied around the center)
+            ctx.rotate(rotation * Math.PI / 180);
+
+            // Scale the image (Scale applied from the center)
+            ctx.scale(Math.abs(scale), Math.abs(scale));
+
+            // Translate the image based on sliders (x, y are % relative to half of Canvas)
+            ctx.translate(
+                (x / 100) * (canvas.width / 2),
+                (y / 100) * (canvas.height / 2)
+            );
+
+            // Calculate position and size for drawing the image with object-fit: cover behavior
+            const imgAspect = hiResUser.width / hiResUser.height;
+            const canvasAspect = canvas.width / canvas.height; // Should be 1 (1920x1920)
+
+            let sx, sy, sWidth, sHeight; // Source rectangle (portion to cut from the original image)
+            let dx, dy, dWidth, dHeight; // Destination rectangle (where to draw on Canvas)
+
+            dWidth = canvas.width;
+            dHeight = canvas.height;
+            // Position at -half of Canvas width/height to center it after ctx.translate()
+            dx = -canvas.width / 2;
+            dy = -canvas.height / 2;
+
+            if (imgAspect > canvasAspect) {
+                // Original image is wider than target area (1920x1920), need to cut horizontally
+                sHeight = hiResUser.height;
+                sWidth = hiResUser.height * canvasAspect;
+                sx = (hiResUser.width - sWidth) / 2;
+                sy = 0;
+            } else {
+                // Original image is taller than target area, need to cut vertically
+                sWidth = hiResUser.width;
+                sHeight = hiResUser.width / canvasAspect;
+                sx = 0;
+                sy = (hiResUser.height - sHeight) / 2;
+            }
+
+            // Draw the user image
+            ctx.drawImage(hiResUser, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight);
+
+            ctx.restore(); // Restore Canvas context to its state before all transformations
+
+            // --- Draw frame image (will be on top and cover the entire Canvas) ---
             ctx.drawImage(hiResFrame, 0, 0, canvas.width, canvas.height);
 
             return canvas;
         }
 
-        // Original download button logic (reverted to previous version)
         downloadBtn.addEventListener('click', async () => {
             try {
                 const canvas = await renderCanvas();
                 const link = document.createElement('a');
-                link.download = `gama-frame-${currentFrame}.jpg`; // Still save as JPEG
-                link.href = canvas.toDataURL('image/jpeg', 0.9); // Convert to JPEG
+                link.download = `gama-frame-${currentFrame}.jpg`;
+                link.href = canvas.toDataURL('image/jpeg', 0.9);
                 link.click();
             } catch (error) {
                 console.error("Error during download:", error);
@@ -280,7 +384,7 @@
                     } else {
                         alert('อุปกรณ์ไม่รองรับการแชร์รูปภาพโดยตรง กรุณาใช้ปุ่ม "ดาวน์โหลดรูปภาพ" เพื่อบันทึกแล้วแชร์ด้วยตนเอง');
                     }
-                }, 'image/jpeg', 0.9); // Convert to JPEG
+                }, 'image/jpeg', 0.9);
             } catch (error) {
                 console.error("Error during share preparation:", error);
                 alert('เกิดข้อผิดพลาดในการเตรียมรูปภาพเพื่อแชร์ กรุณาลองใหม่อีกครั้ง หรือใช้ปุ่ม "ดาวน์โหลด": ' + error.message);
