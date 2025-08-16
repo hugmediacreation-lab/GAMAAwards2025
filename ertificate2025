@@ -1,0 +1,124 @@
+<?php
+/*
+Template Name: Certificate Search Page
+*/
+?>
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ค้นหาใบประกาศ - GAMA Awards 2025</title>
+
+    <link rel="icon" href="https://gamaawards.org/wp-content/uploads/2025/08/logo-gama-awards.png">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <style>
+        :root { --primary-color: #007bff; --success-color: #28a745; --warning-color: #ffc107; --gray-text: #6c757d; --border-color: #dee2e6; --white: #ffffff; --purple-grad-top: #4f387c; --purple-grad-bottom: #db2b61; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { height: 100%; overflow: hidden; } /* เพิ่ม overflow: hidden; เพื่อล็อกพื้นหลัง */
+        body { font-family: 'Kanit', sans-serif; background: linear-gradient(to top, var(--purple-grad-bottom), var(--purple-grad-top)) fixed; display: flex; justify-content: center; align-items: center; padding: 20px; }
+        .container { width: 100%; max-width: 700px; padding: 40px; text-align: center; }
+        .logo { width: 180px; margin-bottom: 20px; }
+        h1 { font-size: 2em; font-weight: 600; color: var(--white); margin-bottom: 25px; }
+        .search-form { display: flex; gap: 10px; margin-bottom: 20px; }
+        .search-input { flex-grow: 1; padding: 12px 15px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 1.1em; font-family: 'Kanit', sans-serif; background-color: var(--white); color: #333; }
+        .search-input::placeholder { color: #999; }
+        .search-input:focus { outline: none; border-color: #aaa; }
+        .search-btn { padding: 12px 20px; font-size: 1.1em; font-weight: 500; background-color: var(--warning-color); color: #333; border: none; border-radius: 8px; cursor: pointer; transition: background-color 0.2s; }
+        .search-btn:hover { background-color: #e0a800; }
+        #results-container { margin-top: 30px; text-align: left; max-height: 450px; overflow-y: auto; padding-right: 10px; }
+        .result-item { margin-bottom: 25px; text-align: center; }
+        .result-title { display: block; font-size: 1.2em; font-weight: 500; color: var(--white); margin-bottom: 15px; text-transform: capitalize; }
+        .preview-link { display: block; outline: none; text-decoration: none; }
+        .preview-link:focus, .preview-link:active { outline: none; }
+        .preview-image { width: 100%; max-height: 280px; object-fit: contain; border: none; border-radius: 4px; }
+        .download-btn { padding: 12px 20px; font-size: 1.1em; font-weight: 500; background-color: var(--success-color); color: var(--white); border: none; border-radius: 8px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 8px; margin-top: 15px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <img src="https://hugmediacreation.com/wp-content/uploads/2025/05/gama.png" alt="GAMA Thailand Logo" class="logo">
+
+        <h1>ค้นหาใบประกาศ GAMA AWARDS 2025</h1>
+
+        <div class="search-form">
+            <input type="text" id="searchInput" class="search-input" placeholder="ค้นหาด้วยชื่อ-สกุล (ภาษาอังกฤษ)">
+            <button id="searchButton" class="search-btn"><i class="fa-solid fa-magnifying-glass"></i></button>
+        </div>
+        <div id="results-container"></div>
+    </div>
+
+    <script>
+        <?php
+            $upload_dir = wp_upload_dir();
+            $path = $upload_dir['basedir'] . '/2025/08/';
+            $files = glob($path . '*.{png,jpg,jpeg}', GLOB_BRACE);
+            $originals = [];
+            $scaled_versions = [];
+            foreach ($files as $file) {
+                if (preg_match('/-\d+x\d+\.(png|jpg|jpeg)$/i', $file)) { continue; }
+                if (strpos(basename($file), '-scaled') !== false) {
+                    $base_name = str_replace('-scaled', '', basename($file));
+                    $scaled_versions[$base_name] = basename($file);
+                } else {
+                    $originals[$base_name] = basename($file);
+                }
+            }
+            $final_files = array_merge($originals, $scaled_versions);
+            $file_names = array_values($final_files);
+            echo "const certificateFiles = " . json_encode($file_names) . ";\n";
+        ?>
+        const certificateBaseUrl = "<?php echo content_url('/uploads/2025/08/'); ?>";
+        const searchInput = document.getElementById('searchInput');
+        const searchButton = document.getElementById('searchButton');
+        const resultsContainer = document.getElementById('results-container');
+        function performSearch() {
+            const searchTerm = searchInput.value.toLowerCase().replace(/\s+/g, '');
+            if (searchTerm.length < 3) {
+                resultsContainer.innerHTML = `<p style="color:var(--white); text-align:center;">กรุณากรอกข้อความค้นหาอย่างน้อย 3 ตัวอักษร</p>`;
+                return;
+            }
+            const foundFiles = certificateFiles.filter(fileName => {
+                const searchableName = fileName.toLowerCase().replace(/-/g, '').replace(/scaled/g, '');
+                return searchableName.includes(searchTerm);
+            });
+            displayResults(foundFiles);
+        }
+        function displayResults(results) {
+            resultsContainer.innerHTML = '';
+            if (results.length === 0) {
+                resultsContainer.innerHTML = `<p style="color:var(--white); text-align:center;">ไม่พบข้อมูลที่ตรงกับการค้นหา</p>`;
+                return;
+            }
+            results.forEach(fileName => {
+                const fileUrl = certificateBaseUrl + encodeURIComponent(fileName);
+                let displayName = fileName.substring(0, fileName.lastIndexOf('.')).replace(/-/g, ' ');
+                displayName = displayName.replace(/ scaled/g, '');
+                const item = document.createElement('div');
+                item.className = 'result-item';
+                item.innerHTML = `
+                    <strong class="result-title">${displayName}</strong>
+                    <a href="${fileUrl}" class="preview-link" download="${fileName}">
+                        <img src="${fileUrl}" alt="ตัวอย่างใบประกาศของ ${displayName}" class="preview-image">
+                    </a>
+                    <a href="${fileUrl}" class="download-btn" download="${fileName}">
+                        <i class="fa-solid fa-download"></i>
+                        ดาวน์โหลด
+                    </a>
+                `;
+                resultsContainer.appendChild(item);
+            });
+        }
+        searchButton.addEventListener('click', performSearch);
+        searchInput.addEventListener('keyup', (event) => {
+            if (event.key === 'Enter') {
+                performSearch();
+            }
+        });
+    </script>
+</body>
+</html>
